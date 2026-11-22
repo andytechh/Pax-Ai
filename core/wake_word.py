@@ -76,7 +76,13 @@ def install_and_download(logger: Callable[[str], None] = print,
     """
     _tell = notify or (lambda _msg: None)
     try:
+        if is_ready():
+            logger("Wake word: already installed and ready.")
+            return True, "Wake word is already installed and ready."
         if not is_installed():
+            if getattr(sys, "frozen", False):
+                return False, ("Wake-word support is not present in this PAX build. "
+                               "Install the updated PAX build; do not run pip through PAX.exe.")
             logger("Wake word: installing openwakeword (one-time)…")
             _tell("Wake word: installing openwakeword (one-time)…")
             r = subprocess.run(
