@@ -51,7 +51,7 @@ for package in ("PyQt6", "sounddevice", "cv2", "numpy", "cryptography", "pywin32
     except Exception:
         pass
 
-hidden.update({"main", "pax_entry", "plugins._gmail_core", "core.desktop.controller", "win32crypt", "win32api", "pythoncom", "pywintypes"})
+hidden.update({"main", "pax_entry", "pax_wake_listener", "plugins._gmail_core", "core.desktop.controller", "win32crypt", "win32api", "pythoncom", "pywintypes"})
 # Keep main.py as a resource for the existing in-app restart action.
 datas.append((str(ROOT / "main.py"), "."))
 MODE = __import__("os").environ.get("PAX_BUILD_MODE", "onedir").lower()
