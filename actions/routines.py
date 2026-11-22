@@ -17,6 +17,10 @@ def _trigger(a: dict) -> dict | None:
     if on == "idle":
         return {"type": "idle", "minutes": int(a.get("idle_minutes") or 15),
                 "cooldown": int(a.get("cooldown_minutes") or 20)}
+    if on in ("process_started", "process_stopped"):
+        return {"type": on, "process": a.get("process") or ""}
+    if on in ("file_created", "file_changed", "file_deleted"):
+        return {"type": on, "path": a.get("path") or ""}
     if any(a.get(k) for k in ("at", "time", "monthly_day", "every_minutes")):
         return {"type": "time", "rule": R.rule_from_args(a, datetime.now().astimezone().tzinfo)}
     return None
@@ -56,7 +60,8 @@ def routines(parameters: dict, player=None) -> str:
             trigger = _trigger(a)
             if trigger is None:
                 return outcome.failed("routines", "say when: at, time (+ days), monthly_day, "
-                                                  "every_minutes, or on = startup | idle")
+                                                  "every_minutes, or on = startup | idle | process_started | process_stopped | "
+                                                  "file_created | file_changed | file_deleted")
             r = eng.add(name=a.get("name") or a.get("text") or "", kind=kind, text=a.get("text") or "",
                         trigger=trigger, deliver=a.get("deliver") or "voice",
                         agent=a.get("agent") or "general", minutes=a.get("minutes") or 10,
@@ -123,7 +128,8 @@ TOOL = {
         "task (text = the task, agent researcher|general, minutes). WHEN, one of: at 'YYYY-MM-DD "
         "HH:MM' (once) | time 'HH:MM' + optional days (numbers 1=Mon…7=Sun; weekdays = [1,2,3,4,5]) | "
         "monthly_day 1-31 + time | every_minutes + optional between 'HH:MM-HH:MM' | on 'startup' | "
-        "on 'idle' + idle_minutes. "
+        "on 'idle' + idle_minutes | 'process_started'/'process_stopped' + process executable | "
+        "'file_created'/'file_changed'/'file_deleted' + path. Event triggers are polled locally. "
         "The built-in routines are builtin 'briefing' (the opening briefing: news_topic, extra, "
         "news true/false), 'checkin' (unprompted check-ins: focuses = what they may be about) and "
         "'news_watch' (the watched topics' headlines). list = all routines with ids; update = change "
@@ -149,7 +155,9 @@ TOOL = {
             "monthly_day": {"type": "INTEGER"},
             "every_minutes": {"type": "INTEGER"},
             "between": {"type": "STRING"},
-            "on": {"type": "STRING", "enum": ["startup", "idle"]},
+            "on": {"type": "STRING", "enum": ["startup", "idle", "process_started", "process_stopped", "file_created", "file_changed", "file_deleted"]},
+            "process": {"type": "STRING"},
+            "path": {"type": "STRING"},
             "idle_minutes": {"type": "INTEGER"},
             "cooldown_minutes": {"type": "INTEGER"},
             "enabled": {"type": "BOOLEAN"},
