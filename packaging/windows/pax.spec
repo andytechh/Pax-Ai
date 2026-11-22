@@ -51,7 +51,7 @@ for package in ("PyQt6", "sounddevice", "cv2", "numpy", "cryptography", "pywin32
     except Exception:
         pass
 
-hidden.update({"main", "pax_entry", "plugins._gmail_core", "core.desktop.controller"})
+hidden.update({"main", "pax_entry", "plugins._gmail_core", "core.desktop.controller", "win32crypt", "win32api", "pythoncom", "pywintypes"})
 # Keep main.py as a resource for the existing in-app restart action.
 datas.append((str(ROOT / "main.py"), "."))
 MODE = __import__("os").environ.get("PAX_BUILD_MODE", "onedir").lower()
@@ -67,6 +67,7 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [] if MODE == "onedir" else a.binaries,
     [] if MODE == "onedir" else a.datas, [], name="PAX", debug=False,
+    exclude_binaries=(MODE == "onedir"),
     bootloader_ignore_signals=False, strip=False, upx=False, console=False,
     disable_windowed_traceback=False,
     icon=str(ROOT / "config" / "jarvis.ico") if (ROOT / "config" / "jarvis.ico").exists() else None,
