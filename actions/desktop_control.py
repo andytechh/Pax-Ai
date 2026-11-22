@@ -27,6 +27,7 @@ TOOL = {
             "window_title": {"type": "STRING"},
             "control_name": {"type": "STRING"},
             "control_type": {"type": "STRING"},
+            "expected_state": {"type": "STRING", "description": "Optional visible label/state expected after the click."},
             "x": {"type": "INTEGER", "description": "Absolute screen X coordinate for move_cursor or click_coordinates."}, "y": {"type": "INTEGER", "description": "Absolute screen Y coordinate for move_cursor or click_coordinates."},
             "x1": {"type": "INTEGER"}, "y1": {"type": "INTEGER"},
             "x2": {"type": "INTEGER"}, "y2": {"type": "INTEGER"},
@@ -72,7 +73,7 @@ def desktop_control(parameters: dict, **_context) -> str:
             if _RISKY_CONTROL.search(control):
                 return _approval("Confirm important desktop action",
                                  f"Window: {window}\nControl: {control}\nThis control may send, submit, delete, purchase, publish, install, or share data.",
-                                 lambda: ctl.click_control(window, control, control_type))
+                                 lambda: ctl.click_control(window, control, control_type, parameters.get("expected_state", "")))
             return ctl.click_control(window, control, control_type)
         if op == "move_cursor":
             x, y = parameters.get("x", -1), parameters.get("y", -1)
