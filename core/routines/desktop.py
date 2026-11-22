@@ -14,6 +14,9 @@ change its news topic or the check-in's subjects, by voice or from the panel.
 """
 from __future__ import annotations
 
+import os
+import shutil
+import sys
 import threading
 from pathlib import Path
 
@@ -34,7 +37,28 @@ DEFAULT_FOCUSES = [
 
 
 def routines_path() -> Path:
-    return _BASE / "memory" / "routines.json"
+    """Keep schedules in the user's writable data directory in packaged builds.
+
+    Existing source-checkout data is copied once only when the destination is
+    absent. Existing user schedules are never replaced.
+    """
+    if not getattr(sys, "frozen", False):
+        return _BASE / "memory" / "routines.json"
+    try:
+        from memory.config_manager import get_base_dir
+        target_root = get_base_dir()
+    except Exception:
+        root = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+        target_root = Path(root) / "PAX"
+    target = Path(target_root) / "memory" / "routines.json"
+    legacy = _BASE / "memory" / "routines.json"
+    if not target.exists() and legacy.is_file():
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(legacy, target)
+        except OSError as exc:
+            print(f"[Routines] legacy schedule migration skipped: {exc}")
+    return target
 
 
 def seed_defaults(engine, brief_enabled: bool) -> None:
