@@ -7,6 +7,19 @@ import traceback
 from pathlib import Path
 
 def main() -> None:
+    if "--pax-wake-listener" in sys.argv:
+        from pax_wake_listener import run_listener
+        raise SystemExit(run_listener())
+    if "--pax-install-wake-startup" in sys.argv:
+        from pax_wake_listener import install_startup
+        install_startup()
+        print("PAX wake listener registered at Windows logon.")
+        return
+    if "--pax-remove-wake-startup" in sys.argv:
+        from pax_wake_listener import remove_startup
+        remove_startup()
+        print("PAX wake listener startup task removed.")
+        return
     if getattr(sys, "frozen", False):
         root = Path(sys._MEIPASS)
         if "--pax-smoke-test" in sys.argv:
