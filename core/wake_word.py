@@ -69,50 +69,33 @@ def is_ready() -> bool:
 
 def install_and_download(logger: Callable[[str], None] = print,
                          notify: Callable[[str], None] | None = None) -> tuple[bool, str]:
-    """
-    One-click setup for the UI button: pip-install openwakeword if missing, then
-    download the wake model. Returns (ok, message). Never raises — every failure
-    is reported through the returned message and the logger.
-    """
+    """Check runtime readiness; never download a different wake phrase as fallback."""
     _tell = notify or (lambda _msg: None)
     try:
+        if not model_path().is_file():
+            return False, ("The Hey PAX model has not been trained and installed yet. "
+                           "Place the evaluated hey_pax.onnx file in %LOCALAPPDATA%\\PAX\\models.")
         if is_ready():
             logger("Wake word: Hey PAX model is ready.")
             return True, "Hey PAX wake-word model is ready."
-        if not model_path().is_file():
-            return False, ("The Hey PAX model has not been trained/installed yet. "
-                           "The Hey PAX model is intentionally not used as a substitute.")
         if not is_installed():
             if getattr(sys, "frozen", False):
-                return False, ("Wake-word support is not present in this PAX build. "
-                               "Install the updated PAX build; do not run pip through PAX.exe.")
-            logger("Wake word: installing openwakeword (one-time)…")
-            _tell("Wake word: installing openwakeword (one-time)…")
-            r = subprocess.run(
+                return False, ("Wake-word runtime is missing from this PAX build. "
+                               "Install the latest PAX build.")
+            _tell("Wake word: installing local detector runtime…")
+            result = subprocess.run(
                 [sys.executable, "-m", "pip", "install", "openwakeword"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
             )
-            if r.returncode != 0:
-                tail = (r.stderr or r.stdout or "").strip().splitlines()[-1:] or [""]
-                return False, f"pip install failed: {tail[0][:160]}"
-        # Download the pretrained melspectrogram/embedding + wake models.
-        logger("Wake word: downloading models…")
-        _tell("Wake word: downloading models…")
-        try:
-            import openwakeword.utils as _u
-            try:
-                _u.download_models([WAKE_MODEL])
-            except TypeError:
-                _u.download_models()   # older signature downloads the default set
-        except Exception as e:
-            return False, f"model download failed: {e}"
-
+            if result.returncode != 0:
+                tail = (result.stderr or result.stdout or "").strip().splitlines()[-1:] or [""]
+                return False, f"openWakeWord install failed: {tail[0][:160]}"
         if not is_ready():
-            return False, "installed, but the wake model could not be loaded."
-        logger("Wake word: ready.")
-        return True, "Wake word installed and ready."
-    except Exception as e:
-        return False, f"setup error: {e}"
+            return False, "The Hey PAX model or its local feature models are missing."
+        logger("Wake word: Hey PAX ready.")
+        return True, "Hey PAX wake-word model is ready."
+    except Exception as exc:
+        return False, f"wake-word setup error: {exc}"
 
 
 class WakeWordDetector:
