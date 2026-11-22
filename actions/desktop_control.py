@@ -23,7 +23,7 @@ TOOL = {
     "parameters": {
         "type": "OBJECT",
         "properties": {
-            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "move_cursor", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
+            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
             "window_title": {"type": "STRING"},
             "control_name": {"type": "STRING"},
             "control_type": {"type": "STRING"},
@@ -69,11 +69,12 @@ def desktop_control(parameters: dict, **_context) -> str:
                                  f"Window: {window}\nControl: {control}\nThis control may send, submit, delete, purchase, publish, install, or share data.",
                                  lambda: ctl.click_control(window, control, control_type))
             return ctl.click_control(window, control, control_type)
+        if op == "move_cursor":
+            x, y = parameters.get("x", -1), parameters.get("y", -1)
+            return ctl.move_cursor(x, y)
         if op == "click_coordinates":
             x, y = parameters.get("x", -1), parameters.get("y", -1)
-            return _approval("Confirm coordinate-based click",
-                             f"Click screen coordinates ({x}, {y}). The target control cannot be identified by accessibility metadata.",
-                             lambda: ctl.click_coordinates(x, y))
+            return ctl.click_coordinates(x, y)
         if op == "drag":
             return ctl.drag(parameters.get("x1", -1), parameters.get("y1", -1),
                             parameters.get("x2", -1), parameters.get("y2", -1))
