@@ -1,0 +1,31 @@
+# openWakeWord custom model training configuration for PAX.
+# This is a training recipe, not a trained model. The resulting ONNX file must
+# be copied to %LOCALAPPDATA%\PAX\models\hey_pax.onnx and evaluated before use.
+model_name: "hey_pax"
+target_phrase:
+  - "hey pax"
+custom_negative_phrases:
+  - "hey packs"
+  - "hey max"
+  - "okay"
+n_samples: 30000
+n_samples_val: 5000
+tts_batch_size: 50
+augmentation_batch_size: 16
+piper_sample_generator_path: "./piper-sample-generator"
+output_dir: "./hey_pax_training"
+rir_paths:
+  - "./mit_rirs"
+background_paths:
+  - "./background_clips"
+feature_data_files:
+  ACAV100M_sample: "./openwakeword_features_ACAV100M_2000_hrs_16bit.npy"
+batch_n_per_class:
+  ACAV100M_sample: 1024
+  adversarial_negative: 50
+  positive: 50
+model_type: "dnn"
+layer_size: 32
+steps: 50000
+max_negative_weight: 1500
+target_false_positives_per_hour: 0.2
