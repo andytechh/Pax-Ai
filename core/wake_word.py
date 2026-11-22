@@ -1,5 +1,5 @@
 """
-Local wake-word detection for JARVIS ("Hey Jarvis").
+Local wake-word detection for PAX ("Hey PAX").
 
 Design goals:
   • ZERO cost when the feature is off — openwakeword is imported ONLY inside
@@ -13,7 +13,7 @@ Design goals:
     network call except the one-time model download the user triggers from the UI.
 
 openwakeword ships small ONNX models (a few MB each) and runs comfortably on a
-CPU. The pretrained wake phrase used here is "Hey Jarvis".
+CPU. The custom wake phrase is "Hey PAX"; its ONNX model is provisioned separately.
 """
 from __future__ import annotations
 
@@ -24,8 +24,14 @@ import threading
 from pathlib import Path
 from typing import Callable
 
-# Pretrained openwakeword model that listens for "Hey Jarvis".
-WAKE_MODEL = "hey_jarvis"
+# Custom openWakeWord model trained for the exact phrase "Hey PAX".
+WAKE_MODEL = "hey_pax"
+
+def model_path() -> Path:
+    """Per-user custom model location; never silently substitute another phrase."""
+    import os
+    root = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local"))
+    return root / "PAX" / "models" / f"{WAKE_MODEL}.onnx"
 # Score in [0,1]; above this counts as a detection. Tunable per environment.
 DEFAULT_THRESHOLD = 0.5
 # Mic frames arrive at 16 kHz int16; this is just the detector's input rate.
@@ -49,20 +55,14 @@ def is_ready() -> bool:
     with the detector's own Model when it's already running, which intermittently
     returned False and made the UI flicker to 'not downloaded'. Never raises.
     """
-    if not is_installed():
+    if not is_installed() or not model_path().is_file():
         return False
     try:
         import openwakeword
         models_dir = Path(openwakeword.__file__).resolve().parent / "resources" / "models"
-        if not models_dir.is_dir():
-            return False
-        has_wake = (any(models_dir.glob(f"{WAKE_MODEL}*.onnx"))
-                    or any(models_dir.glob(f"{WAKE_MODEL}*.tflite")))
-        has_mel = (any(models_dir.glob("melspectrogram*.onnx"))
-                   or any(models_dir.glob("melspectrogram*.tflite")))
-        has_emb = (any(models_dir.glob("embedding_model*.onnx"))
-                   or any(models_dir.glob("embedding_model*.tflite")))
-        return bool(has_wake and has_mel and has_emb)
+        has_mel = any(models_dir.glob("melspectrogram*.onnx"))
+        has_emb = any(models_dir.glob("embedding_model*.onnx"))
+        return bool(has_mel and has_emb)
     except Exception:
         return False
 
@@ -77,8 +77,11 @@ def install_and_download(logger: Callable[[str], None] = print,
     _tell = notify or (lambda _msg: None)
     try:
         if is_ready():
-            logger("Wake word: already installed and ready.")
-            return True, "Wake word is already installed and ready."
+            logger("Wake word: Hey PAX model is ready.")
+            return True, "Hey PAX wake-word model is ready."
+        if not model_path().is_file():
+            return False, ("The Hey PAX model has not been trained/installed yet. "
+                           "The Hey Jarvis model is intentionally not used as a substitute.")
         if not is_installed():
             if getattr(sys, "frozen", False):
                 return False, ("Wake-word support is not present in this PAX build. "
@@ -143,7 +146,10 @@ class WakeWordDetector:
             return True
         try:
             from openwakeword.model import Model
-            self._model = Model(wakeword_models=[WAKE_MODEL], inference_framework="onnx")
+            custom = model_path()
+            if not custom.is_file():
+                raise FileNotFoundError(f"Hey PAX model is missing: {custom}")
+            self._model = Model(wakeword_models=[str(custom)], inference_framework="onnx")
         except Exception as e:
             self._logger(f"Wake word: could not load model — {e}")
             self._notify("Wake word unavailable — use the WAKE NOW button.")
@@ -153,7 +159,7 @@ class WakeWordDetector:
         self._ready = True
         self._thread = threading.Thread(target=self._loop, daemon=True, name="WakeWordThread")
         self._thread.start()
-        self._logger("Wake word: listening for 'Hey Jarvis'.")
+        self._logger("Wake word: listening for 'Hey PAX'.")
         return True
 
     def stop(self) -> None:
@@ -213,11 +219,10 @@ class WakeWordDetector:
                 scores = self._model.predict(np.asarray(frame, dtype=np.int16))
                 score = 0.0
                 if isinstance(scores, dict):
-                    # match the jarvis model regardless of exact key suffix
                     for k, v in scores.items():
-                        if "jarvis" in k.lower():
+                        if "hey_pax" in k.lower() or "hey-pax" in k.lower():
                             score = max(score, float(v))
-                    if score == 0.0 and scores:
+                    if score == 0.0 and len(scores) == 1:
                         score = max(float(v) for v in scores.values())
                 if score >= self._threshold:
                     # drain any backlog and clear the model, so one utterance is one wake
