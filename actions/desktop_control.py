@@ -23,7 +23,7 @@ TOOL = {
     "parameters": {
         "type": "OBJECT",
         "properties": {
-            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
+            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "move_cursor", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
             "window_title": {"type": "STRING"},
             "control_name": {"type": "STRING"},
             "control_type": {"type": "STRING"},
