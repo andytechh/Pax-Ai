@@ -1,0 +1,50 @@
+name: PAX Windows build
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build layout
+        type: choice
+        options: [onedir, onefile]
+        default: onedir
+      installer:
+        description: Build PAX-Setup.exe (requires Inno Setup)
+        type: boolean
+        default: true
+  push:
+    branches: [feature/pax-windows-packaging]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: x64
+      - name: Install Inno Setup
+        if: ${{ github.event_name == 'push' || inputs.installer }}
+        run: choco install innosetup --no-progress -y
+      - name: Build PAX
+        shell: pwsh
+        run: |
+          $mode = "onedir"
+          $installer = $false
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $mode = "${{ inputs.mode }}"
+            $installer = "${{ inputs.installer }}" -eq "true"
+          } else { $installer = $true }
+          .\packaging\windows\build.ps1 -Mode $mode -Installer:$installer
+      - name: Upload portable executable bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: PAX-Windows-Portable
+          path: dist/PAX*
+          if-no-files-found: error
+          retention-days: 14
