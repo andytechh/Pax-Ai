@@ -4,7 +4,7 @@ This branch adds a Windows desktop operator and a Gmail API integration while pr
 
 ## Windows desktop control
 
-The `desktop_control` action uses Windows UI Automation (pywinauto) to enumerate and focus windows and click named controls. Clipboard-assisted text entry, keyboard shortcuts, scrolling, and screenshot capture are available as fallbacks. Named UIA controls should be preferred over screen coordinates. Desktop operations are intended for the interactive user's Windows session and are not a substitute for application-specific APIs.
+The `desktop_control` action uses Windows UI Automation (pywinauto) to enumerate, focus, minimize, maximize, and close windows, and click named controls. Clipboard-assisted text entry, keyboard shortcuts, drag/scroll, and screenshot capture are also available. Named UIA controls should be preferred over screen coordinates. Closing windows, coordinate-only clicks, risky named controls (send/submit/delete/purchase/etc.), and consequential shortcuts require the PAX confirmation UI. Desktop operations are intended for the interactive user's Windows session and are not a substitute for application-specific APIs.
 
 ## Gmail setup
 
