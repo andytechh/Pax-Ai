@@ -287,6 +287,12 @@ class RoutineEngine:
             return "when the assistant starts"
         if t["type"] == "idle":
             return f"after {t['minutes']} min of quiet, at most every {t['cooldown']} min"
+        if t["type"] == "process_started":
+            return f"when {t['process']} starts"
+        if t["type"] == "process_stopped":
+            return f"when {t['process']} closes"
+        if t["type"].startswith("file_"):
+            return f"when file changes: {t['path']}"
         return R.describe_rule(t["rule"], self.tz())
 
     # ── the scheduler ────────────────────────────────────────────────────────
@@ -302,7 +308,18 @@ class RoutineEngine:
             rule = dict(trigger["rule"])
             R.next_fire(rule, local_dt(time.time()))      # raises on a malformed rule
             return {"type": "time", "rule": rule}
-        raise ValueError("trigger must be time (with a rule), startup or idle")
+        if kind in ("process_started", "process_stopped"):
+            name = str(trigger.get("process") or "").strip()
+            if not name or len(name) > 260 or any(c in name for c in ("/", "\\\\")):
+                raise ValueError("process trigger needs an executable name, e.g. notepad.exe")
+            return {"type": kind, "process": name}
+        if kind in ("file_created", "file_changed", "file_deleted"):
+            raw = str(trigger.get("path") or "").strip()
+            if not raw:
+                raise ValueError("file trigger needs a full file or folder path")
+            path = str(Path(raw).expanduser())
+            return {"type": kind, "path": path}
+        raise ValueError("trigger must be time, startup, idle, process_started, process_stopped, file_created, file_changed")
 
     def _host(self, method: str, *args, default=None):
         fn = getattr(self.host, method, None)
@@ -347,6 +364,66 @@ class RoutineEngine:
                 self._fire(r)
             elif t == "time":
                 self._tick_time(r, now, dt, ready and idle >= CALM_SECONDS)
+            elif t in ("process_started", "process_stopped", "file_created", "file_changed", "file_deleted"):
+                self._tick_event(r)
+
+    def _event_snapshot(self, trigger: dict):
+        """Return a stable snapshot for a local process or filesystem event."""
+        kind = trigger["type"]
+        if kind.startswith("process_"):
+            try:
+                import psutil
+                wanted = trigger["process"].casefold()
+                running = any((p.info.get("name") or "").casefold() == wanted
+                              for p in psutil.process_iter(["name"]))
+                return bool(running)
+            except Exception:
+                return False
+        path = Path(trigger["path"])
+        try:
+            if not path.exists():
+                return None
+            if kind == "file_deleted":
+                return True
+            stat = path.stat()
+            return (stat.st_mtime_ns, stat.st_size, stat.st_mode)
+        except OSError:
+            return None
+
+    def _tick_event(self, r: dict) -> None:
+        trigger = r["trigger"]
+        current = self._event_snapshot(trigger)
+        previous = r.get("_event_state")
+        # Establish a baseline on first observation so adding a routine does not
+        # immediately fire merely because a process/file already exists.
+        if "_event_state" not in r:
+            with self._lock:
+                live = self._find(r["id"])
+                if live is not None:
+                    live["_event_state"] = current
+                    self._save()
+            return
+        changed = current != previous
+        fire = False
+        kind = trigger["type"]
+        if kind == "process_started":
+            fire = current is True and previous is False
+        elif kind == "process_stopped":
+            fire = current is False and previous is True
+        elif kind == "file_created":
+            fire = current is not None and previous is None
+        elif kind == "file_deleted":
+            fire = current is None and previous is not None
+        elif kind == "file_changed":
+            fire = current is not None and previous is not None and changed
+        if changed:
+            with self._lock:
+                live = self._find(r["id"])
+                if live is not None:
+                    live["_event_state"] = current
+                    self._save()
+        if fire:
+            self._fire(r)
 
     def _tick_time(self, r: dict, now: float, dt: datetime, ready: bool) -> None:
         nxt = float(r.get("next_ts") or 0)
