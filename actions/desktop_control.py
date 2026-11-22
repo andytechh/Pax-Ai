@@ -23,11 +23,11 @@ TOOL = {
     "parameters": {
         "type": "OBJECT",
         "properties": {
-            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
+            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
             "window_title": {"type": "STRING"},
             "control_name": {"type": "STRING"},
             "control_type": {"type": "STRING"},
-            "x": {"type": "INTEGER"}, "y": {"type": "INTEGER"},
+            "x": {"type": "INTEGER", "description": "Absolute screen X coordinate for move_cursor or click_coordinates."}, "y": {"type": "INTEGER", "description": "Absolute screen Y coordinate for move_cursor or click_coordinates."},
             "x1": {"type": "INTEGER"}, "y1": {"type": "INTEGER"},
             "x2": {"type": "INTEGER"}, "y2": {"type": "INTEGER"},
             "text": {"type": "STRING"},
