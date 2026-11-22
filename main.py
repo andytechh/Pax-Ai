@@ -102,13 +102,22 @@ from core.wake_word            import (
 WAKE_SLEEP_TIMEOUT = 120.0   # seconds (2 minutes)
 
 def get_base_dir():
+    """Writable user-data directory for frozen builds; source root in development."""
+    import os
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
+        override = os.environ.get("PAX_DATA_DIR", "").strip()
+        if override:
+            return Path(override).expanduser().resolve()
+        if _platform.system() == "Windows":
+            root = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+            return Path(root) / "PAX"
+        return Path(sys.executable).parent / "PAX_Data"
     return Path(__file__).resolve().parent
 
 BASE_DIR        = get_base_dir()
+RESOURCE_DIR    = Path(__file__).resolve().parent
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
-PROMPT_PATH     = BASE_DIR / "core" / "prompt.txt"
+PROMPT_PATH     = RESOURCE_DIR / "core" / "prompt.txt"
 # The conversation's model. A NAME, not a decision: the ladder lives in
 # core/gemini.py and this is only whichever rung is currently in use, kept here
 # as a module attribute because plugins read it (chat_takeover asks main for it

@@ -2,18 +2,10 @@ import json
 import re
 from datetime import datetime
 from threading import Lock
-from pathlib import Path
-import sys
+from memory.config_manager import get_base_dir
 
-
-def get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
-
-
-BASE_DIR         = get_base_dir()
-MEMORY_PATH      = BASE_DIR / "memory" / "long_term.json"
+BASE_DIR = get_base_dir()
+MEMORY_PATH = BASE_DIR / "memory" / "long_term.json"
 _lock            = Lock()
 MAX_VALUE_LENGTH = 380
 
