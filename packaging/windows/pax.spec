@@ -12,7 +12,7 @@ packages = (
     "playwright", "fastapi", "uvicorn", "cryptography", "win32com", "win32crypt",
     "comtypes", "pywinauto", "pycaw", "wmi", "qrcode", "google_auth_oauthlib",
     "certifi", "httpx", "requests", "yt_dlp", "pdfplumber", "pptx", "docx",
-    "openpyxl", "pynvml", "ddgs", "send2trash", "pythoncom", "win32api",
+    "openpyxl", "pynvml", "ddgs", "send2trash", "pythoncom", "win32api", "openwakeword",
 )
 for package in packages:
     try:
@@ -42,7 +42,7 @@ for package in ("google-genai", "PyQt6", "certifi", "playwright", "yt-dlp"):
     except Exception:
         pass
 
-for package in ("PyQt6", "sounddevice", "cv2", "numpy", "cryptography", "pywin32"):
+for package in ("PyQt6", "sounddevice", "cv2", "numpy", "cryptography", "pywin32", "openwakeword"):
     try:
         d, b, h = collect_all(package)
         datas += d
