@@ -119,6 +119,17 @@ class DesktopController:
         control.click_input()
         return f"Clicked '{control_name}' in {win.window_text()}."
 
+    def move_cursor(self, x: int, y: int) -> str:
+        """Move the pointer to a screen position without clicking (supports hover)."""
+        if not (0 <= x <= 100000 and 0 <= y <= 100000):
+            raise ValueError("Coordinates are outside the permitted range.")
+        try:
+            import pyautogui
+            pyautogui.moveTo(x=int(x), y=int(y), duration=0.2)
+        except Exception as exc:
+            raise RuntimeError(f"Pointer movement failed: {exc}") from exc
+        return f"Moved pointer to screen position {int(x)}, {int(y)}."
+
     def click_coordinates(self, x: int, y: int) -> str:
         if not (0 <= x <= 100000 and 0 <= y <= 100000):
             raise ValueError("Coordinates are outside the permitted range.")
