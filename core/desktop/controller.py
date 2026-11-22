@@ -149,42 +149,57 @@ class DesktopController:
             )
         return "\n".join(lines)
 
+    @staticmethod
+    def _score_control(wanted: str, item: dict, control_type: str = "") -> float:
+        """Score meaningful accessible labels; reject weak fuzzy matches."""
+        norm = DesktopController._norm
+        role = norm(item.get("control_type", ""))
+        if control_type and role != norm(control_type):
+            return 0.0
+        if not control_type and role in {"edit", "combobox", "searchbox", "document"}:
+            return 0.0
+        target = norm(wanted)
+        labels = [norm(item.get("name", "")), norm(item.get("automation_id", ""))]
+        labels = [x for x in labels if x]
+        if not labels:
+            return 0.0
+        score = 0.0
+        for label in labels:
+            if label == target:
+                score = max(score, 1.0)
+            elif target and (target in label or label in target):
+                score = max(score, 0.86)
+            else:
+                from difflib import SequenceMatcher
+                ratio = SequenceMatcher(None, target, label).ratio()
+                if ratio >= 0.88:
+                    score = max(score, ratio * 0.9)
+        if control_type:
+            score += 0.12
+        elif role in {"button", "hyperlink", "checkbox", "radio button", "menu item", "tab item"}:
+            score += 0.08
+        return score
+
     def _resolve_control(self, win, control_name: str, control_type: str = "") -> dict:
         wanted = self._norm(control_name)
         if not wanted:
             raise ValueError("A control name or description is required.")
-        rows = self._controls(win)
         candidates = []
-        for item in rows:
-            if control_type and self._norm(item["control_type"]) != self._norm(control_type):
-                continue
-            names = [self._norm(item["name"]), self._norm(item["automation_id"])]
-            best = 0.0
-            for name in names:
-                if not name:
-                    continue
-                if name == wanted:
-                    best = max(best, 1.0)
-                elif wanted in name or name in wanted:
-                    best = max(best, 0.88)
-                else:
-                    from difflib import SequenceMatcher
-                    best = max(best, SequenceMatcher(None, wanted, name).ratio())
-            # Prefer actionable controls when labels are shared with containers.
-            if item["control_type"].casefold() in {"button", "hyperlink", "checkbox", "radio button", "menu item", "tab item"}:
-                best += 0.04
-            if best >= 0.70:
-                candidates.append((best, item))
-        candidates.sort(key=lambda pair: pair[0], reverse=True)
+        for item in self._controls(win):
+            score = self._score_control(wanted, item, control_type)
+            if score >= 0.82:
+                rect = item["rect"]
+                candidates.append((score, max(1, rect.width() * rect.height()), item))
+        candidates.sort(key=lambda row: (row[0], -row[1]), reverse=True)
         if not candidates:
             raise RuntimeError(
-                f"Could not match '{control_name}' to a visible UI Automation control in '{win.window_text()}'. "
-                "Inspect the window controls or use visual targeting; do not guess a nearby coordinate."
+                f"Could not identify {control_name!r} in {win.window_text()!r}. "
+                "No click was made; inspect controls instead of substituting a search field."
             )
-        if len(candidates) > 1 and candidates[0][0] - candidates[1][0] < 0.06:
-            choices = [f"{x['control_type']} {x['name']!r}" for _, x in candidates[:5]]
-            raise RuntimeError("Target is ambiguous. Matching controls: " + "; ".join(choices))
-        return candidates[0][1]
+        if len(candidates) > 1 and candidates[0][0] - candidates[1][0] < 0.08:
+            choices = [f"{x[2]['control_type']} {x[2]['name']!r}" for x in candidates[:5]]
+            raise RuntimeError("Target is ambiguous; no click was made: " + "; ".join(choices))
+        return candidates[0][2]
 
     def hover_control(self, window_title: str, control_name: str, control_type: str = "") -> str:
         win = self._find_window(window_title)
@@ -204,18 +219,43 @@ class DesktopController:
             raise RuntimeError(f"Could not hover over '{item['name']}': {exc}") from exc
         return f"Hovered over {item['control_type']} '{item['name']}' in {win.window_text()} at ({x}, {y})."
 
-    def click_control(self, window_title: str, control_name: str, control_type: str = "") -> str:
+    def click_control(self, window_title: str, control_name: str, control_type: str = "", expected_state: str = "") -> str:
+        win = self._find_window(window_title)
+        win.set_focus()
+        time.sleep(0.2)
+        if not win.is_active():
+            raise RuntimeError(f"Window {window_title!r} did not activate; no click was made.")
+        # Re-enumerate after focus because screen geometry may have changed.
         win = self._find_window(window_title)
         item = self._resolve_control(win, control_name, control_type)
-        control = item["control"]
         if not item["enabled"]:
-            raise RuntimeError(f"Control '{item['name']}' is disabled; it was not clicked.")
+            raise RuntimeError(f"Control {item['name']!r} is disabled; no click was made.")
+        rect = item["rect"]
+        x, y = int((rect.left + rect.right) / 2), int((rect.top + rect.bottom) / 2)
         try:
-            control.click_input()
-            time.sleep(0.15)
+            import pyautogui
+            pyautogui.moveTo(x=x, y=y, duration=0.15)
+            px, py = pyautogui.position()
+            if abs(px-x) > 3 or abs(py-y) > 3:
+                raise RuntimeError("Pointer did not reach resolved control center.")
+            pyautogui.click(x=x, y=y)
+            time.sleep(0.25)
         except Exception as exc:
-            raise RuntimeError(f"Click on '{item['name']}' failed: {exc}") from exc
-        return f"Clicked {item['control_type']} '{item['name']}' in {win.window_text()}. Re-inspect the window to verify the resulting state."
+            raise RuntimeError(f"Click on {item['name']!r} failed: {exc}") from exc
+        if expected_state:
+            fresh = self._find_window(window_title)
+            state = self._norm(expected_state)
+            observed = [self._norm(x["name"]) for x in self._controls(fresh)]
+            if not any(state == value or state in value for value in observed if value):
+                raise RuntimeError(
+                    f"Click sent to {item['name']!r}, but expected state {expected_state!r} "
+                    "was not observed. Action is unverified."
+                )
+            return f"Clicked {item['control_type']} {item['name']!r} and verified {expected_state!r}."
+        return (
+            f"Clicked the center of {item['control_type']} {item['name']!r} in {window_title}. "
+            "Click sent; resulting state was not independently verified."
+        )
 
     def move_cursor(self, x: int, y: int) -> str:
         """Move the pointer to a screen position without clicking (supports hover)."""
