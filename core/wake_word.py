@@ -81,7 +81,7 @@ def install_and_download(logger: Callable[[str], None] = print,
             return True, "Hey PAX wake-word model is ready."
         if not model_path().is_file():
             return False, ("The Hey PAX model has not been trained/installed yet. "
-                           "The Hey Jarvis model is intentionally not used as a substitute.")
+                           "The Hey PAX model is intentionally not used as a substitute.")
         if not is_installed():
             if getattr(sys, "frozen", False):
                 return False, ("Wake-word support is not present in this PAX build. "
@@ -184,7 +184,7 @@ class WakeWordDetector:
 
     def _reset_model(self) -> None:
         # The model keeps its recent audio features and scores. Left alone, one
-        # "Hey Jarvis" fired a dozen times in a row (measured: 12), and audio
+        # "Hey PAX" fired a dozen times in a row (measured: 12), and audio
         # from before the assistant woke was still in there when it went back
         # to sleep — so it could wake again on words said minutes earlier.
         try:
