@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import time
+import threading
 from pathlib import Path
 
 import sounddevice as sd
@@ -63,19 +64,21 @@ def run_listener() -> int:
         print(f"PAX executable not found: {target}")
         return 4
 
-    last_launch = 0.0
+    launched = threading.Event()
+    child = {"process": None}
 
     def detected() -> None:
-        nonlocal last_launch
-        now = time.monotonic()
-        if now - last_launch < 8:
+        if launched.is_set():
             return
-        last_launch = now
         try:
-            if target.suffix.lower() == ".py":
-                subprocess.Popen([sys.executable, str(target)], cwd=str(target.parent))
+            if getattr(sys, "frozen", False):
+                proc = subprocess.Popen([str(target)], cwd=str(target.parent))
+            elif target.suffix.lower() == ".py":
+                proc = subprocess.Popen([sys.executable, str(target)], cwd=str(target.parent))
             else:
-                subprocess.Popen([str(target)], cwd=str(target.parent))
+                proc = subprocess.Popen([str(target)], cwd=str(target.parent))
+            child["process"] = proc
+            launched.set()
         except Exception as exc:
             print(f"Could not launch PAX: {exc}")
 
@@ -90,15 +93,32 @@ def run_listener() -> int:
             detector.feed(indata)
         with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
                             blocksize=1280, callback=audio_callback):
-            while detector.ready:
+            while detector.ready and not launched.is_set():
                 time.sleep(0.25)
     except KeyboardInterrupt:
-        pass
+        detector.stop()
+        return 0
     except Exception as exc:
         print(f"Wake listener stopped: {exc}")
         return 6
     finally:
         detector.stop()
+
+    # Release the microphone before PAX starts using it. When the GUI closes,
+    # restart this listener so the wake phrase can launch PAX again.
+    proc = child.get("process")
+    if proc is not None:
+        try:
+            proc.wait()
+        except Exception:
+            pass
+        if getattr(sys, "frozen", False):
+            subprocess.Popen([sys.executable, "--pax-wake-listener"],
+                             cwd=str(Path(sys.executable).resolve().parent))
+        else:
+            entry = Path(__file__).resolve().parent / "pax_entry.py"
+            subprocess.Popen([sys.executable, str(entry), "--pax-wake-listener"],
+                             cwd=str(entry.parent))
     return 0
 
 
