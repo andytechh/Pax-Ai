@@ -46,6 +46,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PAX-Windows-Portable
-          path: dist/PAX*
+          path: |
+            dist/PAX*
+            dist/installer/PAX-Setup.exe
           if-no-files-found: error
           retention-days: 14
