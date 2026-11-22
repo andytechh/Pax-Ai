@@ -1,4 +1,5 @@
 name: PAX Windows build
+# Triggered on the packaging feature branch and manually on demand.
 
 on:
   workflow_dispatch:
