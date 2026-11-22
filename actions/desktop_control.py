@@ -15,7 +15,7 @@ def _approval(title: str, detail: str, run):
 
 TOOL = {
     "name": "desktop_control",
-    "description": ("Control the Windows desktop: list visible windows, focus a window, click a named UI Automation control, "
+    "description": ("Control the Windows desktop: inspect visible UI Automation controls, focus a window, resolve and click a named control, hover over a named control, "
                     "type text into the focused application, press a keyboard shortcut, scroll, or capture a screenshot. "
                     "Prefer named controls over coordinates. Use this for direct computer interaction, not to send Gmail messages."),
     "tier": "core",
@@ -23,7 +23,7 @@ TOOL = {
     "parameters": {
         "type": "OBJECT",
         "properties": {
-            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
+            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "list_controls", "hover_control", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
             "window_title": {"type": "STRING"},
             "control_name": {"type": "STRING"},
             "control_type": {"type": "STRING"},
@@ -60,6 +60,11 @@ def desktop_control(parameters: dict, **_context) -> str:
             return confirm.request(key="desktop-close", title="Close application window",
                                    detail=f"Close window: {title}\nUnsaved work may be lost. Save important changes first.",
                                    run=lambda: ctl.close_window(title))
+        if op == "list_controls":
+            return ctl.list_controls(parameters.get("window_title", ""), parameters.get("amount", 100))
+        if op == "hover_control":
+            return ctl.hover_control(parameters.get("window_title", ""), parameters.get("control_name", ""),
+                                     parameters.get("control_type", ""))
         if op == "click_control":
             window = parameters.get("window_title", "")
             control = parameters.get("control_name", "")
