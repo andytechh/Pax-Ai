@@ -66,8 +66,21 @@ except Exception:      # pragma: no cover — HUD must never die over cosmetics
 
 
 def _base_dir() -> Path:
+    """Use the same persistent per-user data directory as the core config store.
+
+    Frozen Windows builds are commonly installed under Program Files, which is
+    not the writable or authoritative location for user credentials. Keeping
+    the HUD's config reader aligned with memory.config_manager prevents the
+    setup overlay from appearing on every launch after the key was saved.
+    """
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
+        override = os.environ.get("PAX_DATA_DIR", "").strip()
+        if override:
+            return Path(override).expanduser().resolve()
+        if os.name == "nt":
+            root = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+            return Path(root) / "PAX"
+        return Path(sys.executable).parent / "PAX_Data"
     return Path(__file__).resolve().parent.parent
 
 BASE_DIR   = _base_dir()
