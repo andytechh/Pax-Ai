@@ -7,8 +7,21 @@ import time
 from pathlib import Path
 
 def get_base_dir() -> Path:
+    """Return the writable per-user data directory for packaged Windows builds.
+
+    PAX_DATA_DIR can override this for portable deployments. Without it, frozen
+    builds keep credentials, memory and settings under LocalAppData rather than
+    beside an executable installed in a protected directory such as Program Files.
+    Source checkouts continue to use the repository root.
+    """
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
+        override = os.environ.get("PAX_DATA_DIR", "").strip()
+        if override:
+            return Path(override).expanduser().resolve()
+        if os.name == "nt":
+            root = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
+            return Path(root) / "PAX"
+        return Path(sys.executable).parent / "PAX_Data"
     return Path(__file__).resolve().parent.parent
 
 BASE_DIR    = get_base_dir()
