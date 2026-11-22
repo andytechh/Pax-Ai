@@ -802,7 +802,7 @@ class JarvisLive:
         return True
 
     def _on_wake_detected(self) -> None:
-        """Called from the detector thread when 'Hey Jarvis' is heard."""
+        """Called from the detector thread when 'Hey PAX' is heard."""
         self.wake(reason="wake word")
 
     def wake(self, reason: str = "wake word") -> None:
@@ -823,7 +823,7 @@ class JarvisLive:
             detector.reset()        # nothing heard before sleeping may wake it again
         self.set_speaking(False)
         self.ui.set_state("SLEEPING")
-        self.ui.write_log(f"SYS: Sleeping — {reason}. Say 'Hey Jarvis' to wake me.")
+        self.ui.write_log(f"SYS: Sleeping — {reason}. Say 'Hey PAX' to wake me.")
 
     async def _run_sleep_watch(self) -> None:
         """Auto-sleep after the configured silence window (wake-word mode only)."""
@@ -1233,9 +1233,9 @@ class JarvisLive:
             return
         # Respect wake-word sleep: a typed command must not be answered while
         # asleep either (the sleep gate is not just for the mic). Wake first with
-        # "Hey Jarvis" or the WAKE NOW button.
+        # "Hey PAX" or the WAKE NOW button.
         if self._wake_enabled and not self._awake:
-            self.ui.write_log("SYS: I'm asleep — say 'Hey Jarvis' or tap WAKE NOW first.")
+            self.ui.write_log("SYS: I'm asleep — say 'Hey PAX' or tap WAKE NOW first.")
             return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
@@ -2820,7 +2820,7 @@ class JarvisLive:
                         self.ui.write_log("SYS: Reconnected — conversation restored.")
 
                     # Wake word: if enabled, come up ASLEEP (mic gated, silent)
-                    # until the user says "Hey Jarvis" or taps wake in the UI.
+                    # until the user says "Hey PAX" or taps wake in the UI.
                     #
                     # Only on the FIRST connect of a run. A reconnect — a dropped
                     # network, the server rotating the connection — used to put an
@@ -2845,7 +2845,7 @@ class JarvisLive:
                     if self._wake_enabled and wake_ok and (first_connect or not self._awake):
                         self._awake = False
                         self.ui.set_state("SLEEPING")
-                        self.ui.write_log("SYS: JARVIS online — sleeping. Say 'Hey Jarvis' to wake me.")
+                        self.ui.write_log("SYS: JARVIS online — sleeping. Say 'Hey PAX' to wake me.")
                     else:
                         self._awake = True
                         self.ui.set_state("LISTENING")
