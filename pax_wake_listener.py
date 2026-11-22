@@ -50,6 +50,26 @@ def remove_startup() -> None:
                    check=False, capture_output=True)
 
 
+def _gui_running(target: Path) -> bool:
+    """Avoid competing with the GUI for the microphone, including manual starts."""
+    try:
+        import psutil
+        target_resolved = str(target.resolve()).casefold()
+        for proc in psutil.process_iter(["exe", "cmdline"]):
+            try:
+                exe = str(proc.info.get("exe") or "").casefold()
+                cmd = [str(x).casefold() for x in (proc.info.get("cmdline") or [])]
+                if "--pax-wake-listener" in cmd:
+                    continue
+                if exe == target_resolved:
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+    except Exception:
+        pass
+    return False
+
+
 def run_listener() -> int:
     if os.name != "nt":
         print("The always-on listener is currently supported on Windows only.")
@@ -91,10 +111,15 @@ def run_listener() -> int:
             if status:
                 print(f"Microphone: {status}")
             detector.feed(indata)
-        with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
-                            blocksize=1280, callback=audio_callback):
-            while detector.ready and not launched.is_set():
-                time.sleep(0.25)
+        while not launched.is_set():
+            # The listener owns the microphone only while the GUI is closed.
+            if _gui_running(target):
+                time.sleep(1.0)
+                continue
+            with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
+                                blocksize=1280, callback=audio_callback):
+                while detector.ready and not launched.is_set() and not _gui_running(target):
+                    time.sleep(0.25)
     except KeyboardInterrupt:
         detector.stop()
         return 0
@@ -112,13 +137,13 @@ def run_listener() -> int:
             proc.wait()
         except Exception:
             pass
-        if getattr(sys, "frozen", False):
-            subprocess.Popen([sys.executable, "--pax-wake-listener"],
-                             cwd=str(Path(sys.executable).resolve().parent))
-        else:
-            entry = Path(__file__).resolve().parent / "pax_entry.py"
-            subprocess.Popen([sys.executable, str(entry), "--pax-wake-listener"],
-                             cwd=str(entry.parent))
+    if getattr(sys, "frozen", False):
+        subprocess.Popen([sys.executable, "--pax-wake-listener"],
+                         cwd=str(Path(sys.executable).resolve().parent))
+    else:
+        entry = Path(__file__).resolve().parent / "pax_entry.py"
+        subprocess.Popen([sys.executable, str(entry), "--pax-wake-listener"],
+                         cwd=str(entry.parent))
     return 0
 
 
