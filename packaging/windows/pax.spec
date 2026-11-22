@@ -4,7 +4,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metada
 from PyInstaller.building.datastruct import Tree
 
 ROOT = Path(SPECPATH).resolve().parents[1]
-hidden, datas, binaries = set(), [], []
+hidden, datas, binaries, trees = set(), [], [], []
 
 packages = (
     "PyQt6", "google.genai", "google.auth", "googleapiclient", "sounddevice",
@@ -27,14 +27,14 @@ for package_dir in ("actions", "plugins", "core", "dashboard"):
     path = ROOT / package_dir
     if path.exists():
         hidden.update(collect_submodules(package_dir))
-        datas.append(Tree(str(path), prefix=package_dir))
+        trees.append(Tree(str(path), prefix=package_dir))
 
 for rel in ("config/jarvis.ico", "dashboard/static"):
     path = ROOT / rel
     if path.is_file():
         datas.append((str(path), str(Path(rel).parent)))
     elif path.is_dir():
-        datas.append(Tree(str(path), prefix=rel))
+        trees.append(Tree(str(path), prefix=rel))
 
 for package in ("google-genai", "PyQt6", "certifi", "playwright", "yt-dlp"):
     try:
@@ -63,6 +63,9 @@ a = Analysis(
     runtime_hooks=[], excludes=["tkinter.test", "pytest", "IPython", "notebook"],
     noarchive=False,
 )
+for tree in trees:
+    a.datas += tree
+
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz, a.scripts, [] if MODE == "onedir" else a.binaries,
