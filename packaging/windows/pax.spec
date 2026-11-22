@@ -52,6 +52,11 @@ for package in ("PyQt6", "sounddevice", "cv2", "numpy", "cryptography", "pywin32
         pass
 
 hidden.update({"main", "pax_entry", "plugins._gmail_core", "core.desktop.controller"})
+# Keep main.py as a resource for the existing in-app restart action.
+datas.append((str(ROOT / "main.py"), "."))
+MODE = __import__("os").environ.get("PAX_BUILD_MODE", "onedir").lower()
+if MODE not in ("onedir", "onefile"):
+    raise ValueError("PAX_BUILD_MODE must be onedir or onefile")
 a = Analysis(
     [str(ROOT / "pax_entry.py")], pathex=[str(ROOT)], binaries=binaries,
     datas=datas, hiddenimports=sorted(hidden), hookspath=[], hooksconfig={},
@@ -60,8 +65,11 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 exe = EXE(
-    pyz, a.scripts, a.binaries, a.datas, [], name="PAX", debug=False,
+    pyz, a.scripts, [] if MODE == "onedir" else a.binaries,
+    [] if MODE == "onedir" else a.datas, [], name="PAX", debug=False,
     bootloader_ignore_signals=False, strip=False, upx=False, console=False,
     disable_windowed_traceback=False,
     icon=str(ROOT / "config" / "jarvis.ico") if (ROOT / "config" / "jarvis.ico").exists() else None,
 )
+if MODE == "onedir":
+    coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="PAX")
