@@ -66,9 +66,13 @@ def routines(parameters: dict, player=None) -> str:
                         trigger=trigger, deliver=a.get("deliver") or "voice",
                         agent=a.get("agent") or "general", minutes=a.get("minutes") or 10,
                         quiet=a.get("quiet"))
-            return outcome.done("routines", id=r["id"], name=r["name"], when=eng.describe(r),
-                                next=datetime.fromtimestamp(r["next_ts"]).strftime("%Y-%m-%d %H:%M")
-                                if r.get("next_ts") else None)
+            saved = eng.get(r["id"])
+            if not saved or saved.get("text") != r.get("text") or saved.get("trigger") != r.get("trigger"):
+                return outcome.failed("routines", "routine creation could not be verified after saving")
+            return outcome.done("routines", id=saved["id"], name=saved["name"], saved=True,
+                                when=eng.describe(saved),
+                                next=datetime.fromtimestamp(saved["next_ts"]).strftime("%Y-%m-%d %H:%M")
+                                if saved.get("next_ts") else None)
 
         if action == "quiet_hours":
             value = eng.set_quiet_hours(a.get("between") or "")
