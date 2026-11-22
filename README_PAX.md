@@ -77,6 +77,10 @@ to the code's fingerprint) — only do it with a server you control.
 - Google Calendar integration (Gmail is available through `gmail_control`).
 - Anything that makes it a hosted service: there is no PAX cloud; the server is yours.
 
+## Windows executable packaging
+
+A Windows x64 portable build and installer can be produced from a Windows machine or the repository's GitHub Actions workflow. See [packaging/windows/README.md](packaging/windows/README.md) for the build steps, portable folder, `PAX-Setup.exe`, first-run requirements, and data locations. The packaged app stores credentials and memory under `%LOCALAPPDATA%\\PAX`; secrets and user data are never included in the build.
+
 ## Windows desktop automation and Gmail
 
 PAX includes an optional Windows UI Automation action (`desktop_control`) for visible-window discovery, focusing windows, named-control clicks, keyboard input, scrolling, and screenshots. It uses the Windows accessibility tree before coordinate-based input. See [the Windows + Gmail upgrade guide](docs/PAX_UPGRADE.md) for setup and safety details.
