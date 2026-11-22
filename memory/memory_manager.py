@@ -6,14 +6,13 @@ from pathlib import Path
 import sys
 
 
-def get_base_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parent.parent
+import os
+import sys
+from pathlib import Path
+from memory.config_manager import get_base_dir
 
-
-BASE_DIR         = get_base_dir()
-MEMORY_PATH      = BASE_DIR / "memory" / "long_term.json"
+BASE_DIR = get_base_dir()
+MEMORY_PATH = BASE_DIR / "memory" / "long_term.json"
 _lock            = Lock()
 MAX_VALUE_LENGTH = 380
 
