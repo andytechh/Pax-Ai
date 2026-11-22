@@ -106,18 +106,116 @@ class DesktopController:
             raise RuntimeError(f"Drag failed: {exc}") from exc
         return f"Dragged from ({values[0]}, {values[1]}) to ({values[2]}, {values[3]})."
 
+    @staticmethod
+    def _norm(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
+
+    def _controls(self, win, depth: int = 8) -> list[dict]:
+        rows = []
+        try:
+            descendants = win.descendants()
+        except Exception:
+            descendants = []
+        for control in descendants[:1500]:
+            try:
+                info = control.element_info
+                rect = control.rectangle()
+                if not control.is_visible() or rect.width() <= 0 or rect.height() <= 0:
+                    continue
+                rows.append({
+                    "control": control,
+                    "name": str(info.name or control.window_text() or "").strip(),
+                    "control_type": str(info.control_type or ""),
+                    "automation_id": str(info.automation_id or ""),
+                    "rect": rect,
+                    "enabled": bool(control.is_enabled()),
+                    "depth": int(getattr(info, "depth", 0) or 0),
+                })
+            except Exception:
+                continue
+        return rows
+
+    def list_controls(self, window_title: str, limit: int = 100) -> str:
+        win = self._find_window(window_title)
+        rows = self._controls(win)
+        if not rows:
+            return f"No visible UI Automation controls were exposed by {win.window_text()}."
+        lines = []
+        for item in rows[:max(1, min(int(limit), 200))]:
+            r = item["rect"]
+            lines.append(
+                f"{item['control_type']} name={item['name']!r} automation_id={item['automation_id']!r} "
+                f"rect=({r.left},{r.top},{r.right},{r.bottom}) enabled={item['enabled']}"
+            )
+        return "\n".join(lines)
+
+    def _resolve_control(self, win, control_name: str, control_type: str = "") -> dict:
+        wanted = self._norm(control_name)
+        if not wanted:
+            raise ValueError("A control name or description is required.")
+        rows = self._controls(win)
+        candidates = []
+        for item in rows:
+            if control_type and self._norm(item["control_type"]) != self._norm(control_type):
+                continue
+            names = [self._norm(item["name"]), self._norm(item["automation_id"])]
+            best = 0.0
+            for name in names:
+                if not name:
+                    continue
+                if name == wanted:
+                    best = max(best, 1.0)
+                elif wanted in name or name in wanted:
+                    best = max(best, 0.88)
+                else:
+                    from difflib import SequenceMatcher
+                    best = max(best, SequenceMatcher(None, wanted, name).ratio())
+            # Prefer actionable controls when labels are shared with containers.
+            if item["control_type"].casefold() in {"button", "hyperlink", "checkbox", "radio button", "menu item", "tab item"}:
+                best += 0.04
+            if best >= 0.70:
+                candidates.append((best, item))
+        candidates.sort(key=lambda pair: pair[0], reverse=True)
+        if not candidates:
+            raise RuntimeError(
+                f"Could not match '{control_name}' to a visible UI Automation control in '{win.window_text()}'. "
+                "Inspect the window controls or use visual targeting; do not guess a nearby coordinate."
+            )
+        if len(candidates) > 1 and candidates[0][0] - candidates[1][0] < 0.06:
+            choices = [f"{x['control_type']} {x['name']!r}" for _, x in candidates[:5]]
+            raise RuntimeError("Target is ambiguous. Matching controls: " + "; ".join(choices))
+        return candidates[0][1]
+
+    def hover_control(self, window_title: str, control_name: str, control_type: str = "") -> str:
+        win = self._find_window(window_title)
+        item = self._resolve_control(win, control_name, control_type)
+        if not item["enabled"]:
+            raise RuntimeError(f"Control '{item['name']}' is disabled; pointer was not moved.")
+        rect = item["rect"]
+        x, y = int((rect.left + rect.right) / 2), int((rect.top + rect.bottom) / 2)
+        try:
+            import pyautogui
+            pyautogui.moveTo(x=x, y=y, duration=0.2)
+            time.sleep(0.15)
+            px, py = pyautogui.position()
+            if abs(px - x) > 3 or abs(py - y) > 3:
+                raise RuntimeError("Pointer did not reach the resolved control.")
+        except Exception as exc:
+            raise RuntimeError(f"Could not hover over '{item['name']}': {exc}") from exc
+        return f"Hovered over {item['control_type']} '{item['name']}' in {win.window_text()} at ({x}, {y})."
+
     def click_control(self, window_title: str, control_name: str, control_type: str = "") -> str:
         win = self._find_window(window_title)
-        kwargs = {"title": control_name}
-        if control_type:
-            kwargs["control_type"] = control_type
-        control = win.child_window(**kwargs)
-        if not control.exists(timeout=3):
-            raise RuntimeError(f"Could not find UI control '{control_name}' in '{window_title}'.")
-        if not control.is_visible() or not control.is_enabled():
-            raise RuntimeError(f"Control '{control_name}' is not visible and enabled.")
-        control.click_input()
-        return f"Clicked '{control_name}' in {win.window_text()}."
+        item = self._resolve_control(win, control_name, control_type)
+        control = item["control"]
+        if not item["enabled"]:
+            raise RuntimeError(f"Control '{item['name']}' is disabled; it was not clicked.")
+        try:
+            control.click_input()
+            time.sleep(0.15)
+        except Exception as exc:
+            raise RuntimeError(f"Click on '{item['name']}' failed: {exc}") from exc
+        return f"Clicked {item['control_type']} '{item['name']}' in {win.window_text()}. Re-inspect the window to verify the resulting state."
 
     def move_cursor(self, x: int, y: int) -> str:
         """Move the pointer to a screen position without clicking (supports hover)."""
