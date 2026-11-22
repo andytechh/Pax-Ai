@@ -74,7 +74,7 @@ def desktop_control(parameters: dict, **_context) -> str:
                 return _approval("Confirm important desktop action",
                                  f"Window: {window}\nControl: {control}\nThis control may send, submit, delete, purchase, publish, install, or share data.",
                                  lambda: ctl.click_control(window, control, control_type, parameters.get("expected_state", "")))
-            return ctl.click_control(window, control, control_type)
+            return ctl.click_control(window, control, control_type, parameters.get("expected_state", ""))
         if op == "move_cursor":
             x, y = parameters.get("x", -1), parameters.get("y", -1)
             return ctl.move_cursor(x, y)
