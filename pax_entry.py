@@ -29,7 +29,7 @@ def main() -> None:
                 print("PAX package smoke test failed; missing: " + ", ".join(missing))
                 raise SystemExit(2)
             import importlib.util
-            for module in ("PyQt6", "google.genai", "sounddevice", "numpy", "win32crypt", "pywinauto"):
+            for module in ("PyQt6", "google.genai", "sounddevice", "numpy", "win32crypt", "pywinauto", "openwakeword", "pax_wake_listener"):
                 if importlib.util.find_spec(module) is None:
                     print("PAX package smoke test failed; missing module: " + module)
                     raise SystemExit(3)
