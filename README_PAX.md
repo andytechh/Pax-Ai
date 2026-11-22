@@ -74,5 +74,13 @@ to the code's fingerprint) — only do it with a server you control.
 
 ## Not included
 - Bambu Lab printers (MQTT) — only Moonraker and OctoPrint are supported.
-- Gmail/Calendar plugins (the requirements list the Google libraries, but no plugin ships).
+- Google Calendar integration (Gmail is available through `gmail_control`).
 - Anything that makes it a hosted service: there is no PAX cloud; the server is yours.
+
+## Windows desktop automation and Gmail
+
+PAX includes an optional Windows UI Automation action (`desktop_control`) for visible-window discovery, focusing windows, named-control clicks, keyboard input, scrolling, and screenshots. It uses the Windows accessibility tree before coordinate-based input. See [the Windows + Gmail upgrade guide](docs/PAX_UPGRADE.md) for setup and safety details.
+
+The `gmail_control` plugin connects to Gmail through Google OAuth Desktop credentials. Save the OAuth client JSON locally as `config/gmail_client_secret.json` (never commit it), then ask PAX to connect Gmail. The refresh token is encrypted with Windows DPAPI. Gmail send operations require the on-screen PAX confirmation gate; creating a draft never sends it. Inbox monitoring is opt-in.
+
+Cloud-only deployments should use Gemini or a public HTTPS hosted provider. PAX blocks sidecar AI endpoints using plaintext HTTP, loopback, or private-network addresses.

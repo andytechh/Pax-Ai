@@ -6,6 +6,8 @@
 
 # ── Secrets. Committing any of these publishes them. ──────────────────────────
 config/api_keys.json          # your Gemini API key, plus per-plugin credentials
+config/gmail_client_secret.json # Google OAuth Desktop client secret
+config/gmail_token.dpapi       # DPAPI-protected Gmail refresh token
 config/certs/                 # the dashboard's TLS private key and certificate
 config/whatsapp_web/          # a LINKED WhatsApp session — committing it hands
                               # somebody your WhatsApp account, not just a key

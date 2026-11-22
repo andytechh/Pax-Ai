@@ -696,6 +696,21 @@ def _provider_call(model: str, contents, config, timeout_ms: int):
 
     pid = model[len(PROVIDER_PREFIX):]
     cfg = get_provider_config(pid)
+    # Cloud-only mode: sidecar providers must be public HTTPS endpoints.
+    # Refuse local, private-network, and plaintext endpoints rather than silently
+    # routing prompts to a local model or an unencrypted service.
+    from urllib.parse import urlparse
+    import ipaddress
+    parsed = urlparse(str(cfg.get("base_url", "") or "").strip())
+    host = parsed.hostname or ""
+    try:
+        address = ipaddress.ip_address(host)
+        private_host = (address.is_private or address.is_loopback or address.is_link_local
+                        or address.is_reserved or address.is_unspecified)
+    except ValueError:
+        private_host = (host.lower() == "localhost" or host.lower().endswith((".local", ".lan")))
+    if parsed.scheme != "https" or not host or private_host:
+        raise RuntimeError("Cloud-only mode requires a public HTTPS AI provider endpoint. Local, private-network, and plaintext endpoints are blocked.")
     missing = registry.missing_fields(pid, cfg)
     if missing:
         raise RuntimeError(f"404 not configured: {', '.join(missing)}")
