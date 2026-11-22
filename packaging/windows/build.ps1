@@ -12,6 +12,8 @@ Write-Host "Building PAX for Windows x64 ($Mode)" -ForegroundColor Cyan
 if ($LASTEXITCODE -ne 0) { throw "Could not install build tooling" }
 & cmd.exe /c "$Python -m pip install -r requirements.txt"
 if ($LASTEXITCODE -ne 0) { throw "Could not install PAX dependencies" }
+& cmd.exe /c "$Python packaging/windows/prepare_wakeword.py"
+if ($LASTEXITCODE -ne 0) { throw "Could not prepare the wake-word model" }
 $env:PAX_BUILD_MODE = $Mode
 & cmd.exe /c "$Python -m PyInstaller --noconfirm --clean packaging/windows/pax.spec --distpath dist --workpath build"
 Remove-Item Env:PAX_BUILD_MODE -ErrorAction SilentlyContinue
