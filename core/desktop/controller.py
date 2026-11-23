@@ -81,18 +81,79 @@ class DesktopController:
             raise RuntimeError(f"Could not verify that '{win.window_text()}' was maximized.")
         return f"Maximized {win.window_text()}."
 
+    def _close_and_verify(self, windows: list) -> tuple[list[str], list[str]]:
+        before = {int(w.handle) for w in self._visible_windows() if w.is_visible()}
+        targets, seen = [], set()
+        for win in windows:
+            try:
+                handle = int(win.handle)
+                if handle in before and handle not in seen:
+                    seen.add(handle)
+                    targets.append((handle, (win.window_text() or 'Untitled window').strip(), win))
+            except Exception:
+                continue
+        if not targets:
+            raise RuntimeError('No matching visible application windows were found.')
+        for _, _, win in targets:
+            try:
+                win.close()
+            except Exception:
+                pass
+        remaining = {h for h, _, _ in targets}
+        deadline = time.monotonic() + 2.5
+        while remaining and time.monotonic() < deadline:
+            current = {int(w.handle) for w in self._visible_windows() if w.is_visible()}
+            remaining.intersection_update(current)
+            if remaining:
+                time.sleep(0.1)
+        return ([n for h, n, _ in targets if h not in remaining],
+                [n for h, n, _ in targets if h in remaining])
+
+    @staticmethod
+    def _visible_windows():
+        return DesktopController._desktop().windows(visible_only=True)
+
     def close_window(self, title: str) -> str:
         win = self._find_window(title)
-        name = win.window_text()
-        win.close()
-        time.sleep(0.2)
-        try:
-            if win.is_visible():
-                raise RuntimeError(f"'{name}' is still visible; it may have an unsaved-changes prompt.")
-        except Exception as exc:
-            if "still visible" in str(exc):
-                raise
-        return f"Closed {name}."
+        name = (win.window_text() or title).strip()
+        closed, blocked = self._close_and_verify([win])
+        if blocked:
+            raise RuntimeError(f'Windows did not close {name!r}; an unsaved-changes or modal prompt may be open. I left it open to protect your data.')
+        return f'Closed {name!r} and verified the window disappeared.'
+
+    def close_application(self, application: str) -> str:
+        wanted = self._norm(application)
+        if not wanted:
+            raise ValueError('An application name is required.')
+        matches = []
+        for win in self._visible_windows():
+            try:
+                title = (win.window_text() or '').strip()
+                pid = int(win.process_id())
+                process_name = ''
+                try:
+                    import psutil
+                    process_name = psutil.Process(pid).name()
+                except Exception:
+                    pass
+                process_stem = self._norm(os.path.splitext(process_name)[0])
+                title_norm = self._norm(title)
+                if wanted == process_stem or wanted == title_norm or wanted in title_norm:
+                    matches.append(win)
+            except Exception:
+                continue
+        if not matches:
+            try:
+                matches = [self._find_window(application)]
+            except Exception as exc:
+                raise RuntimeError(f'No visible window or running app matched {application!r}.') from exc
+        closed, blocked = self._close_and_verify(matches)
+        if blocked:
+            raise RuntimeError('Close was attempted, but these windows remain open: ' + '; '.join(blocked[:6]) + '. A save/modal prompt may need your decision; the app was not force-killed.')
+        if not closed:
+            raise RuntimeError(f'No window for {application!r} was confirmed closed.')
+        return f'Closed and verified {len(closed)} window(s) for {application!r}: ' + '; '.join(closed[:6]) + '. Background helper processes may remain.'
+
 
     def drag(self, x1: int, y1: int, x2: int, y2: int) -> str:
         values = [int(x1), int(y1), int(x2), int(y2)]
