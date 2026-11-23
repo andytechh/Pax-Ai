@@ -529,6 +529,27 @@ def get_provider_config(provider_id: str) -> dict:
     val = creds.get(provider_id) if isinstance(creds, dict) else None
     return dict(val) if isinstance(val, dict) else {}
 
+def free_only_ai_enabled() -> bool:
+    """PAX never uses a paid model unless the owner changes the code.
+
+    Defaults to True even on existing installs. This is a safety policy, not
+    an opt-in preference, so missing or malformed config fails closed.
+    """
+    return True
+
+
+def gemini_free_tier_confirmed() -> bool:
+    """Whether the owner explicitly confirmed this Gemini key is on a project
+    with billing disabled. API requests cannot reliably distinguish free-tier
+    projects from billable projects, so the default is False.
+    """
+    return bool(get_providers().get("gemini_free_tier_confirmed", False))
+
+
+@_locked
+def save_gemini_free_tier_confirmed(confirmed: bool) -> None:
+    _patch_providers(gemini_free_tier_confirmed=bool(confirmed))
+
 
 def get_pipeline() -> dict:
     """Which provider fills each slot of the pipeline engine."""
