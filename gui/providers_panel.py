@@ -197,7 +197,6 @@ class ProvidersOverlay(_HudOverlay):
             "(otherwise leave unchecked)"
         )
         self._gemini_free_confirm.setChecked(gemini_free_tier_confirmed())
-        self._gemini_free_confirm.setWordWrap(True)
         self._gemini_free_confirm.setFont(hud_font(7))
         self._gemini_free_confirm.setStyleSheet(
             f"QCheckBox {{ color: {C.TEXT_DIM}; background: transparent; }}"
