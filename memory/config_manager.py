@@ -652,7 +652,8 @@ def save_sidecar_first(enabled: bool) -> None:
 @_locked
 def save_providers(mode: str = None, pipeline: dict = None, creds: dict = None,
                    sidecar: str = None, sidecar_first: bool = None,
-                   coding: str = None) -> None:
+                   coding: str = None,
+                   gemini_free_tier_confirmed: bool = None) -> None:
     """Write the whole providers block in ONE file write.
 
     The settings panel used to call five setters in a row — one per provider's
@@ -697,6 +698,8 @@ def save_providers(mode: str = None, pipeline: dict = None, creds: dict = None,
         block["sidecar_first"] = bool(sidecar_first)
     if coding is not None:
         block["coding"] = str(coding or "").strip()
+    if gemini_free_tier_confirmed is not None:
+        block["gemini_free_tier_confirmed"] = bool(gemini_free_tier_confirmed)
 
     data["providers"] = block
     _write_config(data)
