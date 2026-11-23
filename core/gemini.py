@@ -639,17 +639,33 @@ def _provider_settings() -> tuple[str, bool]:
 
 
 def _provider_rungs(tier: str) -> tuple[str, ...]:
-    """The configured side-call provider, as a ladder rung — or nothing.
+    """Configured free-only hosted providers, in fallback order.
 
-    SEARCH is excluded deliberately. Grounded search needs
-    `candidates[...].grounding_metadata`, which only Google's REST models
-    produce; a provider would return a confident answer with no sources behind
-    it, which is worse than saying it cannot search. The same reasoning already
-    keeps the Live rung off that ladder.
+    The owner's preferred sidecar goes first, followed by the other configured
+    allowlisted service. Unconfigured or non-allowlisted services are never
+    attempted in free-only mode. SEARCH remains Gemini REST-only because its
+    grounding metadata is part of the result contract.
     """
     if tier == SEARCH:
         return ()
     pid, _ = _provider_settings()
+    try:
+        from memory.config_manager import (free_only_ai_enabled,
+                                           get_provider_config)
+        if free_only_ai_enabled():
+            from core.free_ai_policy import FREE_PROVIDER_IDS, is_free_model
+            ordered = ([pid] if pid in FREE_PROVIDER_IDS else [])
+            ordered.extend(p for p in FREE_PROVIDER_IDS if p not in ordered)
+            out = []
+            for candidate in ordered:
+                cfg = get_provider_config(candidate)
+                if (cfg.get("api_key") and
+                        is_free_model(candidate, str(cfg.get("model") or ""))):
+                    out.append(PROVIDER_PREFIX + candidate)
+            return tuple(out)
+    except Exception as e:
+        print(f"[PAX AI] Free provider discovery failed closed: {e}")
+        return ()
     return (PROVIDER_PREFIX + pid,) if pid else ()
 
 
@@ -755,8 +771,14 @@ def call(contents, tier: str = FAST, config=None,
     # install with no provider this is an empty tuple and nothing changes.
     rungs = _provider_rungs(tier)
     if rungs:
-        ladder = (rungs + tuple(ladder)) if _provider_first() \
-            else (tuple(ladder) + rungs)
+        from memory.config_manager import free_only_ai_enabled
+        if free_only_ai_enabled():
+            # Free-only providers are the preferred cloud path. Gemini is only
+            # behind them when its project has been explicitly confirmed free.
+            ladder = rungs + tuple(ladder)
+        else:
+            ladder = (rungs + tuple(ladder)) if _provider_first() \
+                else (tuple(ladder) + rungs)
 
     # A service the caller chose for THIS job — dev_agent's coding model — goes
     # in front of everything, because somebody picked it on purpose. The rest
