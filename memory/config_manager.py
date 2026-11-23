@@ -529,6 +529,27 @@ def get_provider_config(provider_id: str) -> dict:
     val = creds.get(provider_id) if isinstance(creds, dict) else None
     return dict(val) if isinstance(val, dict) else {}
 
+def free_only_ai_enabled() -> bool:
+    """PAX never uses a paid model unless the owner changes the code.
+
+    Defaults to True even on existing installs. This is a safety policy, not
+    an opt-in preference, so missing or malformed config fails closed.
+    """
+    return True
+
+
+def gemini_free_tier_confirmed() -> bool:
+    """Whether the owner explicitly confirmed this Gemini key is on a project
+    with billing disabled. API requests cannot reliably distinguish free-tier
+    projects from billable projects, so the default is False.
+    """
+    return bool(get_providers().get("gemini_free_tier_confirmed", False))
+
+
+@_locked
+def save_gemini_free_tier_confirmed(confirmed: bool) -> None:
+    _patch_providers(gemini_free_tier_confirmed=bool(confirmed))
+
 
 def get_pipeline() -> dict:
     """Which provider fills each slot of the pipeline engine."""
@@ -631,7 +652,8 @@ def save_sidecar_first(enabled: bool) -> None:
 @_locked
 def save_providers(mode: str = None, pipeline: dict = None, creds: dict = None,
                    sidecar: str = None, sidecar_first: bool = None,
-                   coding: str = None) -> None:
+                   coding: str = None,
+                   gemini_free_tier_confirmed: bool = None) -> None:
     """Write the whole providers block in ONE file write.
 
     The settings panel used to call five setters in a row — one per provider's
@@ -676,6 +698,8 @@ def save_providers(mode: str = None, pipeline: dict = None, creds: dict = None,
         block["sidecar_first"] = bool(sidecar_first)
     if coding is not None:
         block["coding"] = str(coding or "").strip()
+    if gemini_free_tier_confirmed is not None:
+        block["gemini_free_tier_confirmed"] = bool(gemini_free_tier_confirmed)
 
     data["providers"] = block
     _write_config(data)
