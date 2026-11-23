@@ -696,6 +696,10 @@ def _provider_call(model: str, contents, config, timeout_ms: int):
 
     pid = model[len(PROVIDER_PREFIX):]
     cfg = get_provider_config(pid)
+    from memory.config_manager import free_only_ai_enabled
+    if free_only_ai_enabled():
+        from core.free_ai_policy import require_free_model
+        require_free_model(pid, str(cfg.get("model") or ""))
     # Cloud-only mode: sidecar providers must be public HTTPS endpoints.
     # Refuse local, private-network, and plaintext endpoints rather than silently
     # routing prompts to a local model or an unencrypted service.
@@ -762,6 +766,18 @@ def call(contents, tier: str = FAST, config=None,
         chosen = PROVIDER_PREFIX + provider
         rungs = (chosen,) + tuple(r for r in rungs if r != chosen)
         ladder = (chosen,) + tuple(m for m in ladder if m != chosen)
+
+    # Gemini's API does not expose a reliable per-request "free tier"
+    # switch. A project with billing enabled can incur charges even when the
+    # same model is free on another project. In free-only mode, use Gemini only
+    # after the owner explicitly confirms billing is disabled on this project.
+    from memory.config_manager import free_only_ai_enabled, gemini_free_tier_confirmed
+    gemini_allowed = (not free_only_ai_enabled()) or gemini_free_tier_confirmed()
+    if not gemini_allowed:
+        ladder = tuple(m for m in ladder if m.startswith(PROVIDER_PREFIX))
+        if not ladder:
+            print("[PAX AI] Gemini blocked: free-tier project not confirmed; no approved free provider configured.")
+            return None
 
     resolved_key = key or api_key()
     if not resolved_key:
