@@ -15,7 +15,7 @@ def _approval(title: str, detail: str, run):
 
 TOOL = {
     "name": "desktop_control",
-    "description": ("Control the Windows desktop: inspect visible UI Automation controls, focus a window, resolve and click a named control, hover over a named control, "
+    "description": ("Control the Windows desktop: inspect visible UI Automation controls, gracefully close applications and verify their windows disappear, focus a window, resolve and click a named control, hover over a named control, "
                     "type text into the focused application, press a keyboard shortcut, scroll, or capture a screenshot. "
                     "Prefer named controls over coordinates. Use this for direct computer interaction, not to send Gmail messages."),
     "tier": "core",
@@ -23,7 +23,7 @@ TOOL = {
     "parameters": {
         "type": "OBJECT",
         "properties": {
-            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "click_control", "list_controls", "hover_control", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
+            "operation": {"type": "STRING", "enum": ["list_windows", "focus_window", "minimize_window", "maximize_window", "close_window", "close_application", "click_control", "list_controls", "hover_control", "move_cursor", "click_coordinates", "drag", "type_text", "hotkey", "scroll", "screenshot"]},
             "window_title": {"type": "STRING"},
             "control_name": {"type": "STRING"},
             "control_type": {"type": "STRING"},
@@ -54,13 +54,9 @@ def desktop_control(parameters: dict, **_context) -> str:
         if op == "maximize_window":
             return ctl.maximize_window(parameters.get("window_title", ""))
         if op == "close_window":
-            title = parameters.get("window_title", "")
-            from core import confirm
-            if confirm.pending_title():
-                return "Another action is awaiting confirmation. Resolve it first."
-            return confirm.request(key="desktop-close", title="Close application window",
-                                   detail=f"Close window: {title}\nUnsaved work may be lost. Save important changes first.",
-                                   run=lambda: ctl.close_window(title))
+            return ctl.close_window(parameters.get("window_title", ""))
+        if op == "close_application":
+            return ctl.close_application(parameters.get("window_title", ""))
         if op == "list_controls":
             return ctl.list_controls(parameters.get("window_title", ""), parameters.get("amount", 100))
         if op == "hover_control":
@@ -74,7 +70,7 @@ def desktop_control(parameters: dict, **_context) -> str:
                 return _approval("Confirm important desktop action",
                                  f"Window: {window}\nControl: {control}\nThis control may send, submit, delete, purchase, publish, install, or share data.",
                                  lambda: ctl.click_control(window, control, control_type, parameters.get("expected_state", "")))
-            return ctl.click_control(window, control, control_type)
+            return ctl.click_control(window, control, control_type, parameters.get('expected_state', ''))
         if op == "move_cursor":
             x, y = parameters.get("x", -1), parameters.get("y", -1)
             return ctl.move_cursor(x, y)
