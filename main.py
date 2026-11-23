@@ -2612,7 +2612,20 @@ class JarvisLive:
             llm_id = str(pipe.get("llm") or "").strip()
             if not llm_id:
                 raise RuntimeError("no language model is chosen")
-            missing = registry.missing_fields(llm_id, get_provider_config(llm_id))
+            llm_cfg = get_provider_config(llm_id)
+            from memory.config_manager import free_only_ai_enabled
+            if free_only_ai_enabled():
+                from core.free_ai_policy import require_free_model
+                require_free_model(llm_id, str(llm_cfg.get("model") or ""))
+                for slot, allowed in (("stt", {"stt_whisper"}),
+                                      ("tts", {"tts_piper", "tts_system"})):
+                    selected = str(pipe.get(slot) or "").strip()
+                    if selected and selected not in allowed:
+                        raise RuntimeError(
+                            f"Free-only mode permits only local {slot.upper()} providers; "
+                            f"{selected!r} is blocked."
+                        )
+            missing = registry.missing_fields(llm_id, llm_cfg)
             if missing:
                 raise RuntimeError(f"{llm_id} needs: {', '.join(missing)}")
             llm = registry.build(llm_id, get_provider_config(llm_id))
