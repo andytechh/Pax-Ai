@@ -27,7 +27,7 @@ from PyQt6.QtGui import (
     QPen, QPixmap, QRadialGradient, QShortcut,
 )
 from PyQt6.QtWidgets import (
-    QApplication, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
+    QApplication, QCheckBox, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit,
     QMainWindow, QPushButton, QScrollArea, QSizePolicy, QSplitter,
     QGraphicsScene, QGraphicsView, QGraphicsPixmapItem,
     QStackedWidget, QTextEdit, QVBoxLayout, QWidget, QProgressBar, QSlider,
@@ -106,7 +106,8 @@ class ProvidersOverlay(_HudOverlay):
         from memory.config_manager import (get_coding_provider, get_pipeline,
                                            get_provider_config,
                                            get_provider_mode, get_sidecar_first,
-                                           get_sidecar_provider)
+                                           get_sidecar_provider,
+                                           gemini_free_tier_confirmed)
         from providers import registry
 
         self._registry = registry
@@ -187,6 +188,26 @@ class ProvidersOverlay(_HudOverlay):
         cards.addWidget(self._card_gemini)
         cards.addWidget(self._card_local)
         outer.addLayout(cards)
+
+        # Gemini API keys do not encode a no-billing guarantee. Keep the
+        # confirmation unchecked by default and require an explicit owner
+        # attestation before any Gemini Live or REST request can run.
+        self._gemini_free_confirm = QCheckBox(
+            "I confirm this Gemini API project's billing is DISABLED "
+            "(otherwise leave unchecked)"
+        )
+        self._gemini_free_confirm.setChecked(gemini_free_tier_confirmed())
+        self._gemini_free_confirm.setWordWrap(True)
+        self._gemini_free_confirm.setFont(hud_font(7))
+        self._gemini_free_confirm.setStyleSheet(
+            f"QCheckBox {{ color: {C.TEXT_DIM}; background: transparent; }}"
+            f"QCheckBox::indicator {{ width: 14px; height: 14px; }}"
+        )
+        self._gemini_free_confirm.setToolTip(
+            "PAX cannot inspect Google billing status. Only check this if "
+            "billing is disabled on the Google project used by this API key."
+        )
+        outer.addWidget(self._gemini_free_confirm)
 
         # ── Body ────────────────────────────────────────────────────────────
         self._scroll = QScrollArea()
@@ -1145,6 +1166,7 @@ class ProvidersOverlay(_HudOverlay):
             sidecar=self._sidecar,
             sidecar_first=self._first_combo.currentData() == "before",
             coding=self._coding,
+            gemini_free_tier_confirmed=self._gemini_free_confirm.isChecked(),
         )
 
         # Providers are cached by configuration; a changed setting must not go
