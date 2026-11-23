@@ -2662,6 +2662,13 @@ class JarvisLive:
         client being rebuilt on every reconnect.
         """
         if self._engine_caps is None:
+            from memory.config_manager import free_only_ai_enabled, gemini_free_tier_confirmed
+            if free_only_ai_enabled() and not gemini_free_tier_confirmed():
+                raise RuntimeError(
+                    "PAX is in free-only AI mode. Gemini Live is blocked until "
+                    "you confirm this Google AI Studio project has billing disabled, "
+                    "or configure the free-model voice pipeline under Engine & Providers."
+                )
             client = genai.Client(
                 api_key=_get_api_key(),
                 http_options={"api_version":
