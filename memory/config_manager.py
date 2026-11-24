@@ -517,8 +517,21 @@ def get_providers() -> dict:
 
 
 def get_provider_mode() -> str:
-    """Which engine holds the conversation. Defaults to Gemini Live."""
-    mode = str(get_providers().get("mode", "") or "").strip().lower()
+    """Which engine holds the conversation.
+
+    Existing installs that were left on the experimental provider pipeline are
+    moved back to Gemini Live once. Their provider choices and credentials are
+    retained, and the owner can still explicitly choose MY OWN SETUP again.
+    """
+    providers = get_providers()
+    if not providers.get("gemini_live_default_migrated"):
+        # This is a one-time mode change, not a deletion of pipeline settings.
+        # Keep all STT/LLM/TTS selections and credentials so MY OWN SETUP remains
+        # available if the owner chooses it later.
+        _patch_providers(mode=PROVIDER_MODE_GEMINI,
+                         gemini_live_default_migrated=True)
+        return PROVIDER_MODE_GEMINI
+    mode = str(providers.get("mode", "") or "").strip().lower()
     return mode if mode in (PROVIDER_MODE_GEMINI, PROVIDER_MODE_PIPELINE) \
         else PROVIDER_MODE_GEMINI
 
@@ -581,9 +594,11 @@ def _patch_providers(**fields) -> None:
 
 def save_provider_mode(mode: str) -> None:
     mode = (mode or "").strip().lower()
-    _patch_providers(mode=mode if mode in (PROVIDER_MODE_GEMINI,
-                                           PROVIDER_MODE_PIPELINE)
-                     else PROVIDER_MODE_GEMINI)
+    _patch_providers(
+        mode=mode if mode in (PROVIDER_MODE_GEMINI, PROVIDER_MODE_PIPELINE)
+        else PROVIDER_MODE_GEMINI,
+        gemini_live_default_migrated=True,
+    )
 
 
 @_locked
@@ -678,6 +693,7 @@ def save_providers(mode: str = None, pipeline: dict = None, creds: dict = None,
         m = str(mode).strip().lower()
         block["mode"] = m if m in (PROVIDER_MODE_GEMINI,
                                    PROVIDER_MODE_PIPELINE) else PROVIDER_MODE_GEMINI
+        block["gemini_live_default_migrated"] = True
     if pipeline is not None:
         current = block.get("pipeline")
         current = dict(current) if isinstance(current, dict) else {}
