@@ -441,15 +441,30 @@ class ProvidersOverlay(_HudOverlay):
     def _combo(self) -> QComboBox:
         box = _ScrollSafeCombo()
         box.setFont(hud_font(8))
-        box.setFixedHeight(29)
+        box.setFixedHeight(32)
+        box.setMinimumWidth(220)
+        box.setMaxVisibleItems(12)
+        box.setEditable(False)
+        box.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        box.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        # Use an explicit, high-contrast arrow. Some Windows styles suppress
+        # the native arrow when a custom QSS drop-down is applied, making the
+        # control look like a disabled text field even though it is a combo.
         box.setStyleSheet(
             f"QComboBox {{ background: {C.DARK}; color: {C.TEXT}; "
-            f"border: 1px solid {C.BORDER}; border-radius: 3px; padding: 3px 9px; }}"
-            f"QComboBox:hover {{ border-color: {C.BORDER_B}; }}"
-            f"QComboBox::drop-down {{ border: none; width: 18px; }}"
+            f"border: 1px solid {C.BORDER}; border-radius: 3px; padding: 4px 9px; }}"
+            f"QComboBox:hover, QComboBox:focus {{ border-color: {C.BORDER_B}; }}"
+            f"QComboBox::drop-down {{ subcontrol-origin: padding; "
+            f"subcontrol-position: top right; width: 28px; "
+            f"border-left: 1px solid {C.BORDER}; }}"
+            f"QComboBox::down-arrow {{ width: 0; height: 0; "
+            f"border-left: 5px solid transparent; "
+            f"border-right: 5px solid transparent; "
+            f"border-top: 6px solid {C.TEXT}; }}"
             f"QComboBox QAbstractItemView {{ background: {C.DARK}; color: {C.TEXT}; "
             f"selection-background-color: {C.PRI_GHO}; "
-            f"border: 1px solid {C.BORDER_B}; padding: 2px; }}")
+            f"border: 1px solid {C.BORDER_B}; padding: 4px; "
+            f"outline: 0; }}")
         return box
 
     def _line(self, text: str = "") -> QLineEdit:
@@ -657,6 +672,18 @@ class ProvidersOverlay(_HudOverlay):
             return f"{label}{'   —  ' + note if note else ''}"
 
         box = self._service_combo(slot, ("— not set —", ""), fmt)
+        # Make an empty provider catalog diagnosable in the UI instead of
+        # presenting a lone placeholder that looks like a broken dropdown.
+        available = box.count() - 1
+        if available == 0:
+            failures = self._registry.failures()
+            failed = [f"{name}: {message}" for name, message in failures.items()]
+            detail = "; ".join(failed) if failed else (
+                "No providers were registered for this slot.")
+            warning = self._label(
+                f"NO {name} PROVIDERS FOUND — {detail[:220]}", 7, C.RED)
+            warning.setWordWrap(True)
+            lay.addWidget(warning)
         sid = self._pipe.get(slot, "")
         self._select(box, sid)
         box.currentIndexChanged.connect(
