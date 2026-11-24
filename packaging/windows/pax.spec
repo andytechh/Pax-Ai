@@ -23,7 +23,7 @@ for package in packages:
 # These are discovered at runtime by scanning the filesystem, so preserve them
 # as real files in the frozen application's _MEIPASS directory as well as
 # including their importable modules in the PYZ archive.
-for package_dir in ("actions", "plugins", "core", "dashboard"):
+for package_dir in ("actions", "plugins", "core", "dashboard", "providers"):
     path = ROOT / package_dir
     if path.exists():
         hidden.update(collect_submodules(package_dir))
